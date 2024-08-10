@@ -1,0 +1,14 @@
+[deltamaker2XT]
+deltamaker-0329.local
+
+[deltamaker2T]
+deltamaker-0306.local
+
+[all:children]
+deltamaker2T
+deltamaker2XT
+
+[all:vars]
+ansible_connection=ssh
+ansible_user=pi
+ansible_ssh_pass="{{ ssh_pass }}"
