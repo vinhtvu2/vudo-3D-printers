@@ -1,4 +1,4 @@
 ---
-ssh_pass: REDACTED
-wifi_ssid: REDACTED
-wifi_password: REDACTED
+ssh_pass: deltamaker
+wifi_ssid: VU_IOT
+wifi_password: hello_robo
