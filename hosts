@@ -1,8 +1,16 @@
-[deltamaker2XT]
+
+
+[deltamaker0306]
+deltamaker-0306.local
+
+[deltamaker0329]
 deltamaker-0329.local
 
-[deltamaker2T]
-deltamaker-0306.local
+[deltamaker2XT:children]
+deltamaker0329
+
+[deltamaker2T:children]
+deltamaker0306
 
 [all:children]
 deltamaker2T
