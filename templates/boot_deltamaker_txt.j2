@@ -1,0 +1,30 @@
+# 2017-05-25
+# DeltaMaker configuration parameters.
+# enter the 4-digit serial number, printer height, and nozzle diameter below:
+
+serialnumber {{ serial_number }}
+
+# standard height printer with .35 nozzle
+{% if model == "DeltaMaker 2" %}
+dm-config std 35
+{% else %}
+#dm-config std 35
+{% endif %}
+
+# tall printer with .50 nozzle
+{% if model == "DeltaMaker 2T" %}
+dm-config tall 50
+{% else %}
+#dm-config tall 50
+{% endif %}
+
+# extra-tall printer with .50 nozzle
+{% if model == "DeltaMaker 2XT" %}
+dm-config xtall 50
+{% else %}
+#dm-config xtall 50
+{% endif %}
+
+dm-config adv
+#dm-config usr
+dm-config expandfs

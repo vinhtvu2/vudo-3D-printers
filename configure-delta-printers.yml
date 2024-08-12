@@ -1,10 +1,8 @@
 # Test we can logon to 'webservers' and execute python with json lib.
 # ansible-playbook configure-delta-printers.yml --diff
 # options:  --limit deltamaker-0306.local --check
-# tags: first_run (remove user files for first run only)
 ---
 - name: Configure delta printers first run
-  connection: ansible.netcommon.network_cli
   gather_facts: false
   hosts: all
   tasks:
@@ -15,22 +13,6 @@
         group: pi
         state: directory
       register: create_octoprint_directory
-
-    - name: Turn off bluetooth on boot
-      ansible.builtin.lineinfile:
-        path: /boot/config.txt
-        insertafter: '^# Uncomment some or all of these to enable the optional hardware interfaces'
-        line: dtparam=disable-bt
-      become: true
-      register: turn_off_bluetooth
-
-    - name: Turn off bluetooth on boot
-      ansible.builtin.lineinfile:
-        path: /boot/config.txt
-        insertafter: '^# Uncomment some or all of these to enable the optional hardware interfaces'
-        line: dtoverlay=disable-wifi
-      become: true
-      register: turn_off_wifi
 
     - name: Enable some user alias
       ansible.builtin.blockinfile:
@@ -47,7 +29,7 @@
         insertbefore: '^exit 0'
         line: /sbin/iwconfig wlan0 power off
       become: true
-      register: turn_off_wifi_pm
+      notify: Restart pi
 
     - name: Fix ssh freezing issues on /etc/ssh/sshd_config
       ansible.builtin.lineinfile:
@@ -55,50 +37,48 @@
         state: present
         line: IPQoS cs0 cs0
       become: true
-      register: fix_sshd
+      notify: Restart pi
 
-    - name: remove user file
-      ansible.builtin.file:
-        path: /home/pi/.octoprint/users.yaml
-        state: absent
-      register: user_file_remove_result
-      tags:  ['never', 'first_run' ]
+    - name: Update authorized_key
+      ansible.posix.authorized_key:
+        user: pi
+        state: present
+        key: "{{ lookup('file', './vudocustom_id_rsa.pub') }}"
 
-    - name: add first run line for reseting user credentials
-      ansible.builtin.lineinfile:
-        path: /home/pi/.octoprint/config.yaml
-        regex: '^(.*)firstRun: false(.*)$'
-        line: "  firstRun: true"
-      register: first_run_result
-      tags:  ['never', 'first_run' ]
+    - name: Update octoprint users.yaml with template
+      ansible.builtin.template:
+       src: templates/octoprint_users_yaml.j2
+       dest: /home/pi/.octoprint/users.yaml
+      notify: Restart octoprint
 
-    - name: configure config file for CORS
-      ansible.builtin.lineinfile:
-        path: /home/pi/.octoprint/config.yaml
-        regex: '^(.*)allowCrossOrigin:(.*)$'
-        line: "  allowCrossOrigin: true"
-      register: set_cors_result
+    - name: Update octoprint config.yaml with template
+      ansible.builtin.template:
+       src: templates/octoprint_config_yaml.j2
+       dest: /home/pi/.octoprint/config.yaml
+      notify: Restart octoprint
 
-    - name: set API keys for each server
-      ansible.builtin.lineinfile:
-        path: /home/pi/.octoprint/config.yaml
-        regex: '^(.*)key:(.*)$'
-        line: "  key: 25AB5519F14140078F3F8518762BB12B"
-      register: set_api_result
+    - name: Update deltamaker boot delta.txt configuration
+      ansible.builtin.template:
+       src: templates/boot_deltamaker_txt.j2
+       dest: /boot/deltamaker.txt
+      become: true
+      notify: Restart pi
 
-    - name: restart octoprint service
+    - name: Update deltamaker boot config.txt configuration
+      ansible.builtin.template:
+       src: templates/boot_config_txt.j2
+       dest: /boot/config.txt
+      become: true
+      notify: Restart pi
+
+  handlers:
+    - name: Restart pi
+      ansible.builtin.reboot:
+        msg: "Rebooting machine now"
+      become: true
+
+    - name: Restart octoprint
       ansible.builtin.service:
         name: octoprint
         state: restarted
       become: true
-      when:
-       - create_octoprint_directory.changed or
-         ( user_file_remove_result is defined and user_file_remove_result.changed ) or
-         ( first_run_result is defined and first_run_result.changed ) or
-         ( set_cors_result is defined and set_cors_result.changed )
-
-    - name: reboot machines
-      ansible.builtin.reboot:
-        msg: "Rebooting machine now"
-      become: true
-      when: turn_off_wifi_pm.changed or fix_sshd.changed or turn_off_wifi.changed
