@@ -2,3 +2,7 @@
 ssh_pass: REDACTED
 wifi_ssid: REDACTED
 wifi_password: REDACTED
+octoprint_octoprint_user_name: REDACTED
+octoprint_password_hash: REDACTED
+API_key: REDACTED
+salt: REDEACTED
