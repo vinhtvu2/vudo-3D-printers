@@ -1,9 +1,7 @@
-# Test we can logon to 'webservers' and execute python with json lib.
 # ansible-playbook configure-delta-printers.yml --diff
-# options:  --limit deltamaker-0306.local --check
+# options:  --limit deltamaker-0306.local --check --diff
 ---
 - name: Configure delta printers first run
-  gather_facts: false
   hosts: all
   tasks:
     - name: Create vudocustom directory
@@ -15,6 +13,14 @@
       register: create_octoprint_directory
 
     - name: Enable some user alias
+      ansible.builtin.blockinfile:
+        path: /home/pi/.bashrc
+        insertafter: '^# some more ls aliases'
+        block: |
+          alias ll='ls -lart --color=auto'
+          alias vim='vi'
+
+    - name: Enable some root user for sudo alias
       ansible.builtin.blockinfile:
         path: /home/pi/.bashrc
         insertafter: '^# some more ls aliases'
@@ -43,7 +49,7 @@
       ansible.posix.authorized_key:
         user: pi
         state: present
-        key: "{{ lookup('file', './vudocustom_id_rsa.pub') }}"
+        key: "{{ lookup('file', './vinnie_vudocustom.pub') }}"
 
     - name: Update octoprint users.yaml with template
       ansible.builtin.template:
@@ -52,6 +58,56 @@
       notify: Restart octoprint
 
     - name: Update octoprint config.yaml with template
+      ansible.builtin.template:
+       src: templates/octoprint_config_yaml.j2
+       dest: /home/pi/.octoprint/config.yaml
+      notify: Restart octoprint
+
+    - name: Create directory for printerProfiles
+      ansible.builtin.file:
+        path: ~/.octoprint/printerProfiles
+        state: directory
+
+    - name: Update octoprint printer profile config for .35 nozzel
+      ansible.builtin.template:
+       src: templates/deltamaker_35_nozzle_profile.j2
+       dest: ~/.octoprint/printerProfiles/deltamaker_.35_nozzle.profile
+       force: no
+      notify: Restart octoprint
+
+    - name: Update octoprint printer profile config for .50 nozzel
+      ansible.builtin.template:
+       src: templates/deltamaker_35_nozzle_profile.j2
+       dest: ~/.octoprint/printerProfiles/deltamaker_.50_nozzle.profile
+       force: no
+      notify: Restart octoprint
+
+    - name: temp fix for synchronize to force evaluate variables for setting ssh_pass
+      set_fact:
+        ansible_password: "{{ ssh_pass }}"
+        ansible_ssh_pass: "{{ ssh_pass }}"
+
+    - name: Synchronization slickerProfiles
+      ansible.posix.synchronize:
+        src: ./slicingProfiles/cura
+        dest: ~/.octoprint/slicingProfiles
+        dest_port: 22
+      notify: Restart octoprint
+
+    - name: Delete directory for printer with 0.35 nozzle profile
+      ansible.builtin.file:
+        path: ~/.octoprint/printerProfiles35
+        state: absent
+    - name: Delete directory for printer with 0.50 nozzle profile
+      ansible.builtin.file:
+        path: ~/.octoprint/slicingProfiles35
+        state: absent
+    - name: Delete directory for slicer with 0.50 nozzle profile
+      ansible.builtin.file:
+        path: ~/.octoprint/slicingProfiles50
+        state: absent
+
+    - name: Update octoprint printer profile with template
       ansible.builtin.template:
        src: templates/octoprint_config_yaml.j2
        dest: /home/pi/.octoprint/config.yaml
@@ -72,13 +128,13 @@
       notify: Restart pi
 
   handlers:
-    - name: Restart pi
-      ansible.builtin.reboot:
-        msg: "Rebooting machine now"
-      become: true
-
     - name: Restart octoprint
       ansible.builtin.service:
         name: octoprint
         state: restarted
+      become: true
+
+    - name: Restart pi
+      ansible.builtin.reboot:
+        msg: "Rebooting machine now"
       become: true

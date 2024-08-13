@@ -4,7 +4,7 @@ api:
   allowCrossOrigin: true
   key: {{ API_key }}
 appearance:
-  color: red
+  color: orange
   components:
     order:
       sidebar:
@@ -86,12 +86,11 @@ feature:
   keyboardControl: false
   sdSupport: false
 folder:
-  printerProfiles: /home/pi/.octoprint/printerProfiles50
-  slicingProfiles: /home/pi/.octoprint/slicingProfiles50
+  printerProfiles: /home/pi/.octoprint/printerProfiles
+  slicingProfiles: /home/pi/.octoprint/slicingProfiles
 gcodeViewer: {}
 plugins:
   _disabled:
-  - softwareupdate
   - announcements
   announcements:
     channels:
@@ -110,9 +109,10 @@ plugins:
     avrdude_path: /usr/bin/avrdude
     check_after_connect: false
   softwareupdate:
-    _config_version: 4
+    _config_version: 5
     cache_ttl: 60
     check_providers:
+      automaticshutdown: automaticshutdown
       autoscroll: autoscroll
       customcontrol: customControl
       editorcollection: editorcollection
@@ -123,6 +123,7 @@ plugins:
       octoprint:
         checkout_folder: /home/pi/OctoPrint
 printerParameters: {}
+default: default_deltamaker_.50_nozzle
 printerProfiles:
   defaultProfile:
     axes:
@@ -138,7 +139,7 @@ printerProfiles:
       z:
         inverted: false
         speed: 6000
-    color: orange
+    color: default
     extruder:
       count: 1
       nozzleDiameter: 0.5
@@ -147,9 +148,9 @@ printerProfiles:
         - 0.0
       sharedNozzle: false
     heatedBed: false
-    id: _default
+    id: default_deltamaker_.50_nozzle
     model: DeltaMaker
-    name: DeltaMaker .50 Nozzle
+    name: Default DeltaMaker .50 Nozzle
     volume:
       custom_box: false
       depth: 240.0
