@@ -20,13 +20,13 @@
           alias ll='ls -lart --color=auto'
           alias vim='vi'
 
-    - name: Enable some root user for sudo alias
-      ansible.builtin.blockinfile:
-        path: /home/pi/.bashrc
-        insertafter: '^# some more ls aliases'
-        block: |
+    - name: Create root .bashrc
+      ansible.builtin.copy:
+        dest: /root/.bashrc
+        content: |
           alias ll='ls -lart --color=auto'
           alias vim='vi'
+      become: true
 
     - name: Turn off wifi power management
       ansible.builtin.lineinfile:
