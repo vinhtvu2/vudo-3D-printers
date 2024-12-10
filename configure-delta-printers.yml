@@ -1,16 +1,116 @@
-# ansible-playbook configure-delta-printers.yml --diff
-# options:  --limit deltamaker-0306.local --check --diff
+# ansible-playbook configure-delta-printers.yml
+# options: --diff --limit deltamaker-0329.local --check
 ---
 - name: Configure delta printers first run
   hosts: all
+  gather_facts: false
   tasks:
+    - name: Update /etc/apt/sources.list from archive template
+      ansible.builtin.template:
+        src: templates/archive_sources_list.j2
+        dest: /etc/apt/sources.list
+      become: true
+
+    - name: Update /etc/apt/sources.list.d/raspi.list from archive template
+      ansible.builtin.template:
+        src: templates/archive_raspi_list.j2
+        dest: /etc/apt/sources.list.d/raspi.list
+      become: true
+
+    - name: Add syncthings keyring directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+      become: true
+
+    - name: Add syncthings gpg key
+      ansible.builtin.get_url:
+        url: "https://syncthing.net/release-key.gpg"
+        dest: /etc/apt/keyrings/syncthing-archive-keyring.gpg
+        mode: 0755
+        validate_certs: false
+      become: true
+
+    - name: Add syncthing stable channel to APT sources
+      ansible.builtin.apt_repository:
+        repo: deb [signed-by=/etc/apt/keyrings/syncthing-archive-keyring.gpg] https://apt.syncthing.net/ syncthing stable
+        state: present
+        filename: syncthing
+      become: true
+
+    - name: Install ca-certificates package
+      ansible.builtin.apt:
+        name: ca-certificates
+        state: present
+      become: true
+
+    - name: Update apt list
+      ansible.builtin.apt:
+        force_apt_get: true
+      become: true
+
+    - name: Configure haproxy config
+      ansible.builtin.template:
+        src: templates/haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+      notify: Restart haproxy
+      become: true
+
+    - name: Install syncthing package
+      ansible.builtin.apt:
+        name: syncthing
+        state: present
+        force: true
+      become: true
+
     - name: Create vudocustom directory
       ansible.builtin.file:
         path: /home/pi/.octoprint/uploads/vudocustom
         owner: pi
         group: pi
         state: directory
-      register: create_octoprint_directory
+      notify: Restart octoprint
+
+    - name: fetch syncthing config
+      ansible.builtin.fetch:
+        src: .local/state/syncthing/config.xml
+        dest: templates
+
+    - name: Configure syncthing config
+      ansible.builtin.template:
+        src: templates/syncthing_config_xml.j2
+        dest: ~/.local/state/syncthing/config.xml
+      notify: Restart syncthing
+
+    - name: Enable and start syncthing as a service for user pi
+      ansible.builtin.systemd:
+        name: syncthing@pi
+        enabled: true
+        state: started
+      become: true
+
+    - name: Remove vudoshare directory
+      ansible.builtin.file:
+        path: /home/pi/.octoprint/uploads/vudoshare
+        state: absent
+      become: true
+
+    - name: Remove /home/pi/.sharelogin from template
+      ansible.builtin.file:
+        path: /home/pi/.sharelogin
+        state: absent
+      notify: Restart octoprint
+
+    - name: Update etc/fstab to remove mount to vudoshare
+      ansible.posix.mount:
+        path: /home/pi/.octoprint/uploads/vudoshare
+        src: //192.168.50.1/share/3D-Print-Share
+        fstype: cifs
+        opts: credentials=/home/pi/.sharelogin
+        state: absent
+        boot: false
+      become: true
+      notify: Restart octoprint
 
     - name: Enable some user alias
       ansible.builtin.blockinfile:
@@ -19,14 +119,6 @@
         block: |
           alias ll='ls -lart --color=auto'
           alias vim='vi'
-
-    - name: Create root .bashrc
-      ansible.builtin.copy:
-        dest: /root/.bashrc
-        content: |
-          alias ll='ls -lart --color=auto'
-          alias vim='vi'
-      become: true
 
     - name: Turn off wifi power management
       ansible.builtin.lineinfile:
@@ -53,14 +145,14 @@
 
     - name: Update octoprint users.yaml with template
       ansible.builtin.template:
-       src: templates/octoprint_users_yaml.j2
-       dest: /home/pi/.octoprint/users.yaml
+        src: templates/octoprint_users_yaml.j2
+        dest: /home/pi/.octoprint/users.yaml
       notify: Restart octoprint
 
     - name: Update octoprint config.yaml with template
       ansible.builtin.template:
-       src: templates/octoprint_config_yaml.j2
-       dest: /home/pi/.octoprint/config.yaml
+        src: templates/octoprint_config_yaml.j2
+        dest: /home/pi/.octoprint/config.yaml
       notify: Restart octoprint
 
     - name: Create directory for printerProfiles
@@ -70,16 +162,16 @@
 
     - name: Update octoprint printer profile config for .35 nozzel
       ansible.builtin.template:
-       src: templates/deltamaker_35_nozzle_profile.j2
-       dest: ~/.octoprint/printerProfiles/deltamaker_.35_nozzle.profile
-       force: no
+        src: templates/deltamaker_35_nozzle_profile.j2
+        dest: ~/.octoprint/printerProfiles/deltamaker_.35_nozzle.profile
+        force: no
       notify: Restart octoprint
 
     - name: Update octoprint printer profile config for .50 nozzel
       ansible.builtin.template:
-       src: templates/deltamaker_35_nozzle_profile.j2
-       dest: ~/.octoprint/printerProfiles/deltamaker_.50_nozzle.profile
-       force: no
+        src: templates/deltamaker_35_nozzle_profile.j2
+        dest: ~/.octoprint/printerProfiles/deltamaker_.50_nozzle.profile
+        force: no
       notify: Restart octoprint
 
     - name: temp fix for synchronize to force evaluate variables for setting ssh_pass
@@ -98,6 +190,10 @@
       ansible.builtin.file:
         path: ~/.octoprint/printerProfiles35
         state: absent
+    - name: Delete directory for printer with 0.50  nozzle profile
+      ansible.builtin.file:
+        path: ~/.octoprint/printerProfiles50
+        state: absent
     - name: Delete directory for printer with 0.50 nozzle profile
       ansible.builtin.file:
         path: ~/.octoprint/slicingProfiles35
@@ -109,21 +205,21 @@
 
     - name: Update octoprint printer profile with template
       ansible.builtin.template:
-       src: templates/octoprint_config_yaml.j2
-       dest: /home/pi/.octoprint/config.yaml
+        src: templates/octoprint_config_yaml.j2
+        dest: /home/pi/.octoprint/config.yaml
       notify: Restart octoprint
 
     - name: Update deltamaker boot delta.txt configuration
       ansible.builtin.template:
-       src: templates/boot_deltamaker_txt.j2
-       dest: /boot/deltamaker.txt
+        src: templates/boot_deltamaker_txt.j2
+        dest: /boot/deltamaker.txt
       become: true
       notify: Restart pi
 
     - name: Update deltamaker boot config.txt configuration
       ansible.builtin.template:
-       src: templates/boot_config_txt.j2
-       dest: /boot/config.txt
+        src: templates/boot_config_txt.j2
+        dest: /boot/config.txt
       become: true
       notify: Restart pi
 
@@ -133,6 +229,17 @@
         name: octoprint
         state: restarted
       become: true
+
+    - name: Restart haproxy
+      ansible.builtin.service:
+        name: haproxy
+        state: restarted
+      become: true
+
+    - name: Restart syncthing
+      ansible.builtin.service:
+        name: syncthing@pi
+        state: restarted
 
     - name: Restart pi
       ansible.builtin.reboot:

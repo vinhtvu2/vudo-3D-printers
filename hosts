@@ -26,5 +26,5 @@ deltamaker2XT
 
 [all:vars]
 ansible_connection=ssh
-ansible_user=pi
+ansible_user={{ ssh_username }}
 ansible_ssh_pass="{{ ssh_pass }}"

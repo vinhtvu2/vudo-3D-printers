@@ -82,6 +82,11 @@ controls:
   layout: vertical
   name: Touch Probe Calibration (advanced)
   type: section
+{% if nozzle == "0.35" %}
+default: default_deltamaker_.35_nozzle
+{% else %}
+default: default_deltamaker_.50_nozzle
+{% endif %}
 feature:
   keyboardControl: false
   sdSupport: false
@@ -123,7 +128,11 @@ plugins:
       octoprint:
         checkout_folder: /home/pi/OctoPrint
 printerParameters: {}
-default: default_deltamaker_.50_nozzle
+{% if nozzle == "0.35" %}
+default: deltamaker_.50_nozzle
+{% else %}
+default: deltamaker_.35_nozzle
+{% endif %}
 printerProfiles:
   defaultProfile:
     axes:
@@ -142,15 +151,25 @@ printerProfiles:
     color: default
     extruder:
       count: 1
+{% if nozzle == "0.35" %}
+      nozzleDiameter: 0.35
+{% else %}
       nozzleDiameter: 0.5
+{% endif %}
       offsets:
       - - 0.0
         - 0.0
       sharedNozzle: false
     heatedBed: false
+{% if nozzle == "0.35" %}
+    id: default_deltamaker_.35_nozzle
+    model: DeltaMaker
+    name: Default DeltaMaker .35 Nozzle
+{% else %}
     id: default_deltamaker_.50_nozzle
     model: DeltaMaker
     name: Default DeltaMaker .50 Nozzle
+{% endif %}
     volume:
       custom_box: false
       depth: 240.0
